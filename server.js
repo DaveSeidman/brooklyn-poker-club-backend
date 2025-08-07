@@ -31,11 +31,8 @@ const message = `WELCOME TO BROOKLYN POKER CLUB, We're glad to have you with us!
 // 📞 For help or complaints, contact us anytime at 929-991-6969`;
 
 
-// mongoose.connect(mongoUri, {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true
-// }).then(() => console.log('MongoDB connected'))
-//   .catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(mongoUri).then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Define Player schema
 const playerSchema = new mongoose.Schema({
