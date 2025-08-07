@@ -83,6 +83,7 @@ app.post('/checkin', async (req, res) => {
     const newPlayer = new Player({ name, phone });
     await newPlayer.save();
 
+    console.log(`saved new player: ${name}, ${phone}`)
     // Send SMS
     // const response = await axios.post('https://textbelt.com/text', {
     //   phone,
