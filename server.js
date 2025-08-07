@@ -48,7 +48,7 @@ const Player = mongoose.model('Player', playerSchema);
 app.use(express.json())
 
 app.get('/test', (req, res) => {
-
+  res.send('okay')
 });
 
 
