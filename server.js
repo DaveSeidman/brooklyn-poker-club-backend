@@ -1,6 +1,8 @@
-import express, { text } from 'express';
+import express from 'express';
+import cors from 'cors';
 import axios from 'axios';
 import mongoose from 'mongoose';
+
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -44,21 +46,31 @@ const Player = mongoose.model('Player', playerSchema);
 
 app.use(express.json())
 
+app.use(cors({
+  origin: [
+    'http://localhost:8080',
+    'https://daveseidman.github.io'
+  ]
+}));
+
 app.get('/test', (req, res) => {
   res.send('okay')
 });
 
+app.get('/text', (req, res) => {
+  axios.post('https://textbelt.com/text', {
+    phone: '6463003978',
+    message,
+    key: textbeltKey
+  }).then(response => {
+    console.log(response.data);
+    res.send(response.data);
+  })
+
+});
 
 
 app.post('/checkin', async (req, res) => {
-  // axios.post('https://textbelt.com/text', {
-  //   phone: '+16463003978',
-  //   message,
-  //   key: textbeltKey
-  // }).then(response => {
-  //   console.log(response.data);
-  //   res.send(response.data);
-  // })
 
   const { name, phone } = req.body;
 
@@ -87,7 +99,6 @@ app.post('/checkin', async (req, res) => {
 });
 
 app.get('/players', async (req, res) => {
-  console.log('getting players')
   try {
     const players = await Player.find().sort({ checkinTime: -1 }); // Most recent first
     res.json(players);
