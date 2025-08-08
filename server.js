@@ -13,24 +13,14 @@ const port = process.env.PORT;
 const mongoUri = process.env.MONGODB_URI;
 
 // TODO: save this in the DB and allow admin panel to edit it
-const message = `WELCOME TO BROOKLYN POKER CLUB, We're glad to have you with us! Please take a moment to review and respsect our house rules:`
-
-// Play responsibly and respect others.
-
-// 🚫 No Hit & Run
-// If you're up, minimum play time is 3 hours.
-
-// 🍴 Food & Soft Drinks Are Free
-// Feel free to order anything you'd like.
-
-// 🕔 Dinner is served at 8:30 PM
-// Breakfast is served at 6:00 AM
-
-// 💸 Everyone here works on tips, so please treat the staff with respect and generosity - they're here to assist you with anything you need.
-
-// 👋 Kindly help us keep the club clean and respect the rules
-
-// 📞 For help or complaints, contact us anytime at 929-991-6969`;
+const message =
+  `WELCOME TO BROOKLYN POKER CLUB, We're glad to have you with us! Please take a moment to review and respsect our house rules: Play responsibly and respect others.
+🚫 No Hit & Run: If you're up - minimum play time is 3 hours.
+🍴 Food & Soft Drinks Are Free -  Feel free to order anything you'd like.
+🕔 Dinner is served at 8:30 PM- Breakfast is served at 6:00 AM
+💸 Everyone here works on tips, so please treat the staff with respect and generosity - they're here to assist you with anything you need.
+👋 Kindly help us keep the club clean and respect the rules
+📞 For help or complaints, contact us anytime at 929-991-6969`;
 
 
 mongoose.connect(mongoUri).then(() => console.log('MongoDB connected'))
@@ -49,7 +39,8 @@ app.use(express.json())
 app.use(cors({
   origin: [
     'http://localhost:8080',
-    'https://daveseidman.github.io'
+    'https://daveseidman.github.io',
+    'https://brooklynpoker.club'
   ]
 }));
 
@@ -59,7 +50,7 @@ app.get('/test', (req, res) => {
 
 app.get('/text', (req, res) => {
   axios.post('https://textbelt.com/text', {
-    phone: '6463003978',
+    phone: '4848911215',
     message,
     key: textbeltKey
   }).then(response => {
