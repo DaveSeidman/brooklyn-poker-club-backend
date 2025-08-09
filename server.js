@@ -194,29 +194,20 @@ app.listen(port, () => {
   console.log(`check in server listening on port ${port}`);
 })
 
-// In your Express server
 app.post('/telnyx/status', express.json(), (req, res) => {
-  try {
-    const event = req.body?.data;
+  const event = req.body?.data;
+  console.log('Full webhook event:', JSON.stringify(event, null, 2));
 
-    if (!event) {
-      console.warn('Webhook with no data', req.body);
-      return res.sendStatus(400);
-    }
+  const { event_type, payload } = event || {};
+  const msgId = payload?.id;
+  const status = payload?.to?.[0]?.status;
+  const toNumber = payload?.to?.[0]?.phone_number;
+  const errors = payload?.errors || [];
 
-    const { event_type, payload } = event;
-    const msgId = payload?.id;
-    const status = payload?.to?.[0]?.status;
-    const toNumber = payload?.to?.[0]?.phone_number;
-
-    console.log(`[Telnyx Webhook] ${event_type} for ${toNumber} (msg ${msgId}) → ${status}`);
-
-    // Example: store in DB or update message log here
-    // await Messages.updateOne({ telnyxId: msgId }, { status, updatedAt: new Date() });
-
-    res.sendStatus(200);
-  } catch (err) {
-    console.error('Webhook handler error:', err);
-    res.sendStatus(500);
+  console.log(`[Telnyx Webhook] ${event_type} for ${toNumber} (msg ${msgId}) → ${status}`);
+  if (errors.length) {
+    console.error('Message errors:', errors);
   }
+
+  res.sendStatus(200);
 });
