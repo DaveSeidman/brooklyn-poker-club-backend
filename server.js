@@ -3,6 +3,7 @@ import cors from 'cors';
 import axios from 'axios';
 import mongoose from 'mongoose';
 
+import telnyxPkg from 'telnyx';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -53,6 +54,25 @@ const playerSchema = new mongoose.Schema({
 });
 const Player = mongoose.model('Player', playerSchema);
 
+const telnyx = telnyxPkg(process.env.TELNYX_API_KEY);
+
+const sendSms = async ({ to, text }) => {
+  try {
+    const res = await telnyx.messages.create({
+      from: process.env.TELNYX_FROM, // your Telnyx number
+      to,                            // destination E.164 format
+      text,                          // message body
+      messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID
+    });
+    console.log('Telnyx send result:', res.data);
+    return res.data;
+  } catch (err) {
+    console.error('Telnyx SMS error:', err);
+    throw err;
+  }
+}
+
+
 app.use(express.json())
 
 app.use(cors({
@@ -63,19 +83,30 @@ app.use(cors({
   ]
 }));
 
-app.get('/test', (req, res) => {
-  res.send('okay')
+app.get('/', (req, res) => {
+  res.json({ status: 'okay' })
 });
 
-app.get('/text', (req, res) => {
-  axios.post('https://textbelt.com/text', {
-    phone: '4848911215',
-    message,
-    key: textbeltKey
-  }).then(response => {
-    console.log(response.data);
-    res.send(response.data);
-  })
+app.get('/text', async (req, res) => {
+  try {
+    // const doc = await Message.findById('singleton').lean();
+    const text = "Hello from SNS";
+    const result = await sendSms({ to: '+16463003978', text }); // test number
+    res.json({ ok: true, result });
+  } catch (e) {
+    // console.error('/text error', e);
+    console.dir(e?.raw, { depth: 10 });           // <- shows raw.errors[0]
+
+    res.status(500).json({ ok: false, error: e.message });
+  }
+  // axios.post('https://textbelt.com/text', {
+  //   phone: '4848911215',
+  //   message,
+  //   key: textbeltKey
+  // }).then(response => {
+  //   console.log(response.data);
+  //   res.send(response.data);
+  // })
 
 });
 
@@ -162,3 +193,30 @@ app.post('/message', async (req, res) => {
 app.listen(port, () => {
   console.log(`check in server listening on port ${port}`);
 })
+
+// In your Express server
+app.post('/telnyx/status', express.json(), (req, res) => {
+  try {
+    const event = req.body?.data;
+
+    if (!event) {
+      console.warn('Webhook with no data', req.body);
+      return res.sendStatus(400);
+    }
+
+    const { event_type, payload } = event;
+    const msgId = payload?.id;
+    const status = payload?.to?.[0]?.status;
+    const toNumber = payload?.to?.[0]?.phone_number;
+
+    console.log(`[Telnyx Webhook] ${event_type} for ${toNumber} (msg ${msgId}) → ${status}`);
+
+    // Example: store in DB or update message log here
+    // await Messages.updateOne({ telnyxId: msgId }, { status, updatedAt: new Date() });
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Webhook handler error:', err);
+    res.sendStatus(500);
+  }
+});
