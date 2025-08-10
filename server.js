@@ -2,8 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
 import mongoose from 'mongoose';
-
-import telnyxPkg from 'telnyx';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -13,11 +11,9 @@ const textbeltKey = process.env.TEXTBELT_KEY;
 const port = process.env.PORT;
 const mongoUri = process.env.MONGODB_URI;
 
-// TODO: save this in the DB and allow admin panel to edit it
-const message = `WELCOME TO BROOKLYN POKER CLUB, We're glad to have you with us! Please take a moment to review and respsect our house rules: Play responsibly and respect others.\n🚫 No Hit & Run: If you're up - minimum play time is 3 hours.\n🍴 Food & Soft Drinks Are Free -  Feel free to order anything you'd like.\n🕔 Dinner is served at 8:30 PM- Breakfast is served at 6:00 AM\n💸 Everyone here works on tips, so please treat the staff with respect and generosity - they're here to assist you with anything you need.\n👋 Kindly help us keep the club clean and respect the rules\n📞 For help or complaints, contact us anytime at 929-991-6969`;
+const messageSeed = `WELCOME TO BROOKLYN POKER CLUB, We're glad to have you with us! Please take a moment to review and respsect our house rules: Play responsibly and respect others.\n🚫 No Hit & Run: If you're up - minimum play time is 3 hours.\n🍴 Food & Soft Drinks Are Free -  Feel free to order anything you'd like.\n🕔 Dinner is served at 8:30 PM- Breakfast is served at 6:00 AM\n💸 Everyone here works on tips, so please treat the staff with respect and generosity - they're here to assist you with anything you need.\n👋 Kindly help us keep the club clean and respect the rules\n📞 For help or complaints, contact us anytime at 929-991-6969`;
 
 const MESSAGE_ID = 'singleton';
-
 // Message schema: always exactly one doc
 const messageSchema = new mongoose.Schema({
   _id: { type: String, default: MESSAGE_ID },
@@ -29,22 +25,17 @@ messageSchema.pre('save', function (next) {
   next();
 });
 const Message = mongoose.model('Message', messageSchema);
-
 (async () => {
   try {
     await Message.findByIdAndUpdate(
       MESSAGE_ID,
-      { $setOnInsert: { message } },      // your existing `message` constant
+      { $setOnInsert: { message: messageSeed } },      // your existing `message` constant
       { upsert: true, new: false }
     );
   } catch (e) {
     console.error('Failed to seed default message:', e);
   }
 })();
-
-
-mongoose.connect(mongoUri).then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
 
 // Define Player schema
 const playerSchema = new mongoose.Schema({
@@ -54,23 +45,8 @@ const playerSchema = new mongoose.Schema({
 });
 const Player = mongoose.model('Player', playerSchema);
 
-const telnyx = telnyxPkg(process.env.TELNYX_API_KEY);
-
-const sendSms = async ({ to, text }) => {
-  try {
-    const res = await telnyx.messages.create({
-      from: process.env.TELNYX_FROM, // your Telnyx number
-      to,                            // destination E.164 format
-      text,                          // message body
-      messaging_profile_id: process.env.TELNYX_MESSAGING_PROFILE_ID
-    });
-    console.log('Telnyx send result:', res.data);
-    return res.data;
-  } catch (err) {
-    console.error('Telnyx SMS error:', err);
-    throw err;
-  }
-}
+mongoose.connect(mongoUri).then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 
 app.use(express.json())
@@ -87,29 +63,6 @@ app.get('/', (req, res) => {
   res.json({ status: 'okay' })
 });
 
-app.get('/text', async (req, res) => {
-  try {
-    // const doc = await Message.findById('singleton').lean();
-    const text = "Hello from SNS";
-    const result = await sendSms({ to: '+16463003978', text }); // test number
-    res.json({ ok: true, result });
-  } catch (e) {
-    // console.error('/text error', e);
-    console.dir(e?.raw, { depth: 10 });           // <- shows raw.errors[0]
-
-    res.status(500).json({ ok: false, error: e.message });
-  }
-  // axios.post('https://textbelt.com/text', {
-  //   phone: '4848911215',
-  //   message,
-  //   key: textbeltKey
-  // }).then(response => {
-  //   console.log(response.data);
-  //   res.send(response.data);
-  // })
-
-});
-
 
 app.post('/checkin', async (req, res) => {
 
@@ -119,21 +72,26 @@ app.post('/checkin', async (req, res) => {
     return res.status(400).json({ error: 'Name and phone are required.' });
   }
 
+  const { message } = await Message.findById('singleton').lean();
+
   try {
     // Save player to DB
     const newPlayer = new Player({ name, phone });
     await newPlayer.save();
 
     console.log(`saved new player: ${name}, ${phone}`)
-    // Send SMS
-    // const response = await axios.post('https://textbelt.com/text', {
-    //   phone,
-    //   message,
-    //   key: textbeltKey
-    // });
+
+    axios.post('https://textbelt.com/text', {
+      phone,
+      message,
+      key: textbeltKey
+    }).then(response => {
+      console.log(response.data);
+      res.send(response.data);
+    })
 
     // console.log('Textbelt response:', response.data);
-    res.json({ success: true });//, sms: response.data });
+    // res.json({ success: true });//, sms: response.data });
   } catch (err) {
     console.error('Checkin error:', err);
     res.status(500).json({ error: 'Failed to check in player.' });
@@ -194,20 +152,20 @@ app.listen(port, () => {
   console.log(`check in server listening on port ${port}`);
 })
 
-app.post('/telnyx/status', express.json(), (req, res) => {
-  const event = req.body?.data;
-  console.log('Full webhook event:', JSON.stringify(event, null, 2));
+// app.post('/telnyx/status', express.json(), (req, res) => {
+//   const event = req.body?.data;
+//   console.log('Full webhook event:', JSON.stringify(event, null, 2));
 
-  const { event_type, payload } = event || {};
-  const msgId = payload?.id;
-  const status = payload?.to?.[0]?.status;
-  const toNumber = payload?.to?.[0]?.phone_number;
-  const errors = payload?.errors || [];
+//   const { event_type, payload } = event || {};
+//   const msgId = payload?.id;
+//   const status = payload?.to?.[0]?.status;
+//   const toNumber = payload?.to?.[0]?.phone_number;
+//   const errors = payload?.errors || [];
 
-  console.log(`[Telnyx Webhook] ${event_type} for ${toNumber} (msg ${msgId}) → ${status}`);
-  if (errors.length) {
-    console.error('Message errors:', errors);
-  }
+//   console.log(`[Telnyx Webhook] ${event_type} for ${toNumber} (msg ${msgId}) → ${status}`);
+//   if (errors.length) {
+//     console.error('Message errors:', errors);
+//   }
 
-  res.sendStatus(200);
-});
+//   res.sendStatus(200);
+// });
